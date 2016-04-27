@@ -1083,8 +1083,8 @@ func (dmp *DiffMatchPatch) DiffCleanupSemanticLossless(diffs []Diff) []Diff {
 				equality2 = equality2[sz:]
 				score := diffCleanupSemanticScore_(equality1, edit) +
 					diffCleanupSemanticScore_(edit, equality2)
-					// The >= encourages trailing rather than leading whitespace
-					// on edits.
+                    // The >= encourages trailing rather than leading
+                    // whitespace on edits.
 				if score >= bestScore {
 					bestScore = score
 					bestEquality1 = equality1
