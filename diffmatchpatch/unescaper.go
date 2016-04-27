@@ -1,7 +1,7 @@
 package diffmatchpatch
 
 import (
-    "strings"
+	"strings"
 )
 
 // unescaper unescapes selected chars for compatability with JavaScript's
@@ -18,4 +18,3 @@ var unescaper = strings.NewReplacer(
 	"%2F", "/", "%3F", "?", "%3A", ":",
 	"%40", "@", "%26", "&", "%3D", "=",
 	"%2B", "+", "%24", "$", "%2C", ",", "%23", "#", "%2A", "*")
-
