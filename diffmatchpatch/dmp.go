@@ -55,62 +55,6 @@ func splice(slice []Diff, index int, amount int, elements ...Diff) []Diff {
 	return append(slice[:index], append(elements, slice[index+amount:]...)...)
 }
 
-// indexOf returns the first index of pattern in str, starting at str[i].
-func indexOf(str string, pattern string, i int) int {
-	if i > len(str)-1 {
-		return -1
-	}
-	if i <= 0 {
-		return strings.Index(str, pattern)
-	}
-	ind := strings.Index(str[i:], pattern)
-	if ind == -1 {
-		return -1
-	}
-	return ind + i
-}
-
-// lastIndexOf returns the last index of pattern in str, starting at str[i].
-func lastIndexOf(str string, pattern string, i int) int {
-	if i < 0 {
-		return -1
-	}
-	if i >= len(str) {
-		return strings.LastIndex(str, pattern)
-	}
-	_, size := utf8.DecodeRuneInString(str[i:])
-	return strings.LastIndex(str[:i+size], pattern)
-}
-
-// Return the index of pattern in target, starting at target[i].
-func runesIndexOf(target, pattern []rune, i int) int {
-	if i > len(target)-1 {
-		return -1
-	}
-	if i <= 0 {
-		return runesIndex(target, pattern)
-	}
-	ind := runesIndex(target[i:], pattern)
-	if ind == -1 {
-		return -1
-	}
-	return ind + i
-}
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 func runesEqual(r1, r2 []rune) bool {
 	if len(r1) != len(r2) {
 		return false
