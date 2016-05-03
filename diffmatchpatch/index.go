@@ -32,18 +32,3 @@ func lastIndexOf(str, pattern string, i int) int {
 	_, size := utf8.DecodeRuneInString(str[i:])
 	return strings.LastIndex(str[:i+size], pattern)
 }
-
-// Return the index of pattern in target, starting at target[i].
-func runesIndexOf(target, pattern []rune, i int) int {
-	if i > len(target)-1 {
-		return -1
-	}
-	if i <= 0 {
-		return runesIndex(target, pattern)
-	}
-	ind := runesIndex(target[i:], pattern)
-	if ind == -1 {
-		return -1
-	}
-	return ind + i
-}
