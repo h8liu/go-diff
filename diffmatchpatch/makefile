@@ -1,6 +1,4 @@
-do: check fmt
-
-all:
+all: check fmt
 	go build .
 
 test:
