@@ -1371,30 +1371,30 @@ func (dmp *DiffMatchPatch) DiffFromDelta(
 
 // MatchMain locates the best instance of 'pattern' in 'text' near 'loc'.
 // Returns -1 if no match found.
-func (dmp *DiffMatchPatch) MatchMain(text, pattern string, loc int) int {
+func (dmp *DiffMatchPatch) MatchMain(s, pattern string, loc int) int {
 	// Check for null inputs not needed since null can't be passed in C#.
 
-	loc = int(math.Max(0, math.Min(float64(loc), float64(len(text)))))
-	if text == pattern {
+	loc = int(math.Max(0, math.Min(float64(loc), float64(len(s)))))
+	if s == pattern {
 		// Shortcut (potentially not guaranteed by the algorithm)
 		return 0
-	} else if len(text) == 0 {
+	} else if len(s) == 0 {
 		// Nothing to match.
 		return -1
-	} else if loc+len(pattern) <= len(text) &&
-		text[loc:loc+len(pattern)] == pattern {
+	} else if loc+len(pattern) <= len(s) &&
+		s[loc:loc+len(pattern)] == pattern {
 		// Perfect match at the perfect spot!  (Includes case of null pattern)
 		return loc
 	}
 	// Do a fuzzy compare.
-	return dmp.MatchBitap(text, pattern, loc)
+	return dmp.MatchBitap(s, pattern, loc)
 }
 
 // MatchBitap locates the best instance of 'pattern' in 'text' near 'loc'
 // using the Bitap algorithm.  Returns -1 if no match found.
 func (dmp *DiffMatchPatch) MatchBitap(text, pattern string, loc int) int {
 	// Initialise the alphabet.
-	s := dmp.MatchAlphabet(pattern)
+	s := MatchAlphabet(pattern)
 
 	// Highest score beyond which we give up.
 	var score_threshold float64 = dmp.MatchThreshold
@@ -1505,26 +1505,6 @@ func (dmp *DiffMatchPatch) matchBitapScore(
 		}
 	}
 	return accuracy + (proximity / float64(dmp.MatchDistance))
-}
-
-// MatchAlphabet initialises the alphabet for the Bitap algorithm.
-func (dmp *DiffMatchPatch) MatchAlphabet(pattern string) map[byte]int {
-	s := map[byte]int{}
-	char_pattern := []byte(pattern)
-	for _, c := range char_pattern {
-		_, ok := s[c]
-		if !ok {
-			s[c] = 0
-		}
-	}
-	i := 0
-
-	for _, c := range char_pattern {
-		value := s[c] | int(uint(1)<<uint((len(pattern)-i-1)))
-		s[c] = value
-		i++
-	}
-	return s
 }
 
 //  PATCH FUNCTIONS

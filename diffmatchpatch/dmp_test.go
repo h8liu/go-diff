@@ -1015,25 +1015,24 @@ func Test_diffMain(t *testing.T) {
 	// Test null inputs -- not needed because nulls can't be passed in Go.
 }
 
-func Test_match_alphabet(t *testing.T) {
-	dmp := New()
+func TestMatchAlphabet(t *testing.T) {
 	// Initialise the bitmasks for Bitap.
 	bitmask := map[byte]int{
 		'a': 4,
 		'b': 2,
 		'c': 1,
 	}
-	assertMapEqual(t, bitmask, dmp.MatchAlphabet("abc"))
+	assertMapEqual(t, bitmask, MatchAlphabet("abc"))
 
 	bitmask = map[byte]int{
 		'a': 37,
 		'b': 18,
 		'c': 8,
 	}
-	assertMapEqual(t, bitmask, dmp.MatchAlphabet("abcaba"))
+	assertMapEqual(t, bitmask, MatchAlphabet("abcaba"))
 }
 
-func Test_match_bitap(t *testing.T) {
+func TestMatchBitap(t *testing.T) {
 	dmp := New()
 
 	// Bitap algorithm.
