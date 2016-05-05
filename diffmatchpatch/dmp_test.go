@@ -114,16 +114,15 @@ func diffRebuildtexts(diffs []Diff) []string {
 }
 
 func Test_diffCommonPrefix(t *testing.T) {
-	dmp := New()
 	// Detect any common suffix.
 	// Null case.
-	assert.Equal(t, 0, dmp.DiffCommonPrefix("abc", "xyz"), "'abc' and 'xyz' should not be equal")
+	assert.Equal(t, 0, DiffCommonPrefix("abc", "xyz"), "'abc' and 'xyz' should not be equal")
 
 	// Non-null case.
-	assert.Equal(t, 4, dmp.DiffCommonPrefix("1234abcdef", "1234xyz"), "")
+	assert.Equal(t, 4, DiffCommonPrefix("1234abcdef", "1234xyz"), "")
 
 	// Whole case.
-	assert.Equal(t, 4, dmp.DiffCommonPrefix("1234", "1234xyz"), "")
+	assert.Equal(t, 4, DiffCommonPrefix("1234", "1234xyz"), "")
 }
 
 func Test_commonPrefixLength(t *testing.T) {
@@ -141,16 +140,15 @@ func Test_commonPrefixLength(t *testing.T) {
 }
 
 func Test_diffCommonSuffixTest(t *testing.T) {
-	dmp := New()
 	// Detect any common suffix.
 	// Null case.
-	assert.Equal(t, 0, dmp.DiffCommonSuffix("abc", "xyz"), "")
+	assert.Equal(t, 0, DiffCommonSuffix("abc", "xyz"), "")
 
 	// Non-null case.
-	assert.Equal(t, 4, dmp.DiffCommonSuffix("abcdef1234", "xyz1234"), "")
+	assert.Equal(t, 4, DiffCommonSuffix("abcdef1234", "xyz1234"), "")
 
 	// Whole case.
-	assert.Equal(t, 4, dmp.DiffCommonSuffix("1234", "xyz1234"), "")
+	assert.Equal(t, 4, DiffCommonSuffix("1234", "xyz1234"), "")
 }
 
 func Test_commonSuffixLength(t *testing.T) {
@@ -194,24 +192,23 @@ func Test_runesIndexOf(t *testing.T) {
 }
 
 func Test_diffCommonOverlapTest(t *testing.T) {
-	dmp := New()
 	// Detect any suffix/prefix overlap.
 	// Null case.
-	assert.Equal(t, 0, dmp.DiffCommonOverlap("", "abcd"), "")
+	assert.Equal(t, 0, DiffCommonOverlap("", "abcd"), "")
 
 	// Whole case.
-	assert.Equal(t, 3, dmp.DiffCommonOverlap("abc", "abcd"), "")
+	assert.Equal(t, 3, DiffCommonOverlap("abc", "abcd"), "")
 
 	// No overlap.
-	assert.Equal(t, 0, dmp.DiffCommonOverlap("123456", "abcd"), "")
+	assert.Equal(t, 0, DiffCommonOverlap("123456", "abcd"), "")
 
 	// Overlap.
-	assert.Equal(t, 3, dmp.DiffCommonOverlap("123456xxx", "xxxabcd"), "")
+	assert.Equal(t, 3, DiffCommonOverlap("123456xxx", "xxxabcd"), "")
 
 	// Unicode.
 	// Some overly clever languages (C#) may treat ligatures as equal to their
 	// component letters.  E.g. U+FB01 == 'fi'
-	assert.Equal(t, 0, dmp.DiffCommonOverlap("fi", "\ufb01i"), "")
+	assert.Equal(t, 0, DiffCommonOverlap("fi", "\ufb01i"), "")
 }
 
 func Test_diffHalfmatchTest(t *testing.T) {
@@ -251,7 +248,7 @@ func Test_diffHalfmatchTest(t *testing.T) {
 func Test_diffBisectSplit(t *testing.T) {
 	// As originally written, this can produce invalid utf8 strings.
 	dmp := New()
-	diffs := dmp.diffBisectSplit_([]rune("STUV\x05WX\x05YZ\x05["),
+	diffs := dmp.diffBisectSplit([]rune("STUV\x05WX\x05YZ\x05["),
 		[]rune("WĺĻļ\x05YZ\x05ĽľĿŀZ"), 7, 6, time.Now().Add(time.Hour))
 	for _, d := range diffs {
 		assert.True(t, utf8.ValidString(d.Text))
@@ -259,29 +256,28 @@ func Test_diffBisectSplit(t *testing.T) {
 }
 
 func Test_diffLinesToChars(t *testing.T) {
-	dmp := New()
 	// Convert lines down to characters.
 	tmpVector := []string{"", "alpha\n", "beta\n"}
 
-	result0, result1, result2 := dmp.DiffLinesToChars("alpha\nbeta\nalpha\n", "beta\nalpha\nbeta\n")
+	result0, result1, result2 := DiffLinesToChars("alpha\nbeta\nalpha\n", "beta\nalpha\nbeta\n")
 	assert.Equal(t, "\u0001\u0002\u0001", result0, "")
 	assert.Equal(t, "\u0002\u0001\u0002", result1, "")
 	assertStrEqual(t, tmpVector, result2)
 
 	tmpVector = []string{"", "alpha\r\n", "beta\r\n", "\r\n"}
-	result0, result1, result2 = dmp.DiffLinesToChars("", "alpha\r\nbeta\r\n\r\n\r\n")
+	result0, result1, result2 = DiffLinesToChars("", "alpha\r\nbeta\r\n\r\n\r\n")
 	assert.Equal(t, "", result0, "")
 	assert.Equal(t, "\u0001\u0002\u0003\u0003", result1, "")
 	assertStrEqual(t, tmpVector, result2)
 
 	tmpVector = []string{"", "a", "b"}
-	result0, result1, result2 = dmp.DiffLinesToChars("a", "b")
+	result0, result1, result2 = DiffLinesToChars("a", "b")
 	assert.Equal(t, "\u0001", result0, "")
 	assert.Equal(t, "\u0002", result1, "")
 	assertStrEqual(t, tmpVector, result2)
 
 	// Omit final newline.
-	result0, result1, result2 = dmp.DiffLinesToChars("alpha\nbeta\nalpha", "")
+	result0, result1, result2 = DiffLinesToChars("alpha\nbeta\nalpha", "")
 	assert.Equal(t, "\u0001\u0002\u0003", result0)
 	assert.Equal(t, "", result1)
 	assertStrEqual(t, []string{"", "alpha\n", "beta\n", "alpha"}, result2)
@@ -300,7 +296,7 @@ func Test_diffLinesToChars(t *testing.T) {
 	chars := string(charList)
 	assert.Equal(t, n, utf8.RuneCountInString(chars), "")
 
-	result0, result1, result2 = dmp.DiffLinesToChars(lines, "")
+	result0, result1, result2 = DiffLinesToChars(lines, "")
 
 	assert.Equal(t, chars, result0)
 	assert.Equal(t, "", result1, "")
@@ -309,14 +305,13 @@ func Test_diffLinesToChars(t *testing.T) {
 }
 
 func Test_diffCharsToLines(t *testing.T) {
-	dmp := New()
 	// Convert chars up to lines.
 	diffs := []Diff{
 		{DiffEqual, "\u0001\u0002\u0001"},
 		{DiffInsert, "\u0002\u0001\u0002"}}
 
 	tmpVector := []string{"", "alpha\n", "beta\n"}
-	actual := dmp.DiffCharsToLines(diffs, tmpVector)
+	actual := DiffCharsToLines(diffs, tmpVector)
 	assertDiffEqual(t, []Diff{
 		{DiffEqual, "alpha\nbeta\nalpha\n"},
 		{DiffInsert, "beta\nalpha\nbeta\n"}}, actual)
@@ -335,7 +330,7 @@ func Test_diffCharsToLines(t *testing.T) {
 
 	lineList = append([]string{""}, lineList...)
 	diffs = []Diff{{DiffDelete, string(charList)}}
-	actual = dmp.DiffCharsToLines(diffs, lineList)
+	actual = DiffCharsToLines(diffs, lineList)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, strings.Join(lineList, "")}}, actual)
 }
@@ -761,7 +756,6 @@ func Test_diffText(t *testing.T) {
 }
 
 func Test_diffDelta(t *testing.T) {
-	dmp := New()
 	// Convert a diff into delta string.
 	diffs := []Diff{
 		{DiffEqual, "jump"},
@@ -776,7 +770,7 @@ func Test_diffDelta(t *testing.T) {
 	text1 := DiffText1(diffs)
 	assert.Equal(t, "jumps over the lazy", text1)
 
-	delta := dmp.DiffToDelta(diffs)
+	delta := DiffToDelta(diffs)
 	assert.Equal(t, "=4\t-1\t+ed\t=6\t-3\t+a\t=5\t+old dog", delta)
 
 	// Convert delta string into a diff.
@@ -815,7 +809,7 @@ func Test_diffDelta(t *testing.T) {
 	text1 = DiffText1(diffs)
 	assert.Equal(t, "\u0680 \x00 \t %\u0681 \x01 \n ^", text1)
 
-	delta = dmp.DiffToDelta(diffs)
+	delta = DiffToDelta(diffs)
 	// Lowercase, due to UrlEncode uses lower.
 	assert.Equal(t, "=7\t-7\t+%DA%82 %02 %5C %7C", delta)
 
@@ -831,7 +825,7 @@ func Test_diffDelta(t *testing.T) {
 	text2 := DiffText2(diffs)
 	assert.Equal(t, "A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # ", text2, "diff_text2: Unchanged characters.")
 
-	delta = dmp.DiffToDelta(diffs)
+	delta = DiffToDelta(diffs)
 	assert.Equal(t, "+A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # ", delta, "diff_toDelta: Unchanged characters.")
 
 	// Convert delta string into a diff.
@@ -1470,18 +1464,16 @@ func Benchmark_DiffMain(bench *testing.B) {
 }
 
 func Benchmark_DiffCommonPrefix(b *testing.B) {
-	dmp := New()
 	a := "ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ"
 	for i := 0; i < b.N; i++ {
-		dmp.DiffCommonPrefix(a, a)
+		DiffCommonPrefix(a, a)
 	}
 }
 
 func Benchmark_DiffCommonSuffix(b *testing.B) {
-	dmp := New()
 	a := "ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ"
 	for i := 0; i < b.N; i++ {
-		dmp.DiffCommonSuffix(a, a)
+		DiffCommonSuffix(a, a)
 	}
 }
 
@@ -1501,9 +1493,9 @@ func Benchmark_DiffMainLargeLines(b *testing.B) {
 	dmp := New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		text1, text2, linearray := dmp.DiffLinesToRunes(s1, s2)
+		text1, text2, linearray := DiffLinesToRunes(s1, s2)
 		diffs := dmp.DiffMainRunes(text1, text2, false)
-		diffs = dmp.DiffCharsToLines(diffs, linearray)
+		diffs = DiffCharsToLines(diffs, linearray)
 	}
 }
 
