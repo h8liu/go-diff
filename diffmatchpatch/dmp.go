@@ -129,16 +129,16 @@ func (dmp *DiffMatchPatch) diffCompute(
 		}
 		// Shorter text is inside the longer text (speedup).
 		return []Diff{
-			Diff{op, string(longtext[:i])},
-			Diff{DiffEqual, string(shorttext)},
-			Diff{op, string(longtext[i+len(shorttext):])},
+			{op, string(longtext[:i])},
+			{DiffEqual, string(shorttext)},
+			{op, string(longtext[i+len(shorttext):])},
 		}
 	} else if len(shorttext) == 1 {
 		// Single character string.
 		// After the previous speedup, the character can't be an equality.
 		return []Diff{
-			Diff{DiffDelete, string(text1)},
-			Diff{DiffInsert, string(text2)},
+			{DiffDelete, string(text1)},
+			{DiffInsert, string(text2)},
 		}
 		// Check to see if the problem can be split in two.
 	} else if hm := dmp.diffHalfMatch(text1, text2); hm != nil {
@@ -153,7 +153,7 @@ func (dmp *DiffMatchPatch) diffCompute(
 		diffs_b := dmp.diffMainRunes(text1_b, text2_b, checkLines, deadline)
 		// Merge the results.
 		return append(diffs_a, append(
-			[]Diff{Diff{DiffEqual, string(mid_common)}}, diffs_b...,
+			[]Diff{{DiffEqual, string(mid_common)}}, diffs_b...,
 		)...)
 	} else if checkLines && len(text1) > 100 && len(text2) > 100 {
 		return dmp.diffLineMode(text1, text2, deadline)
@@ -354,8 +354,8 @@ func (dmp *DiffMatchPatch) diffBisect(
 	// Diff took too long and hit the deadline or
 	// number of diffs equals number of characters, no commonality at all.
 	return []Diff{
-		Diff{DiffDelete, string(runes1)},
-		Diff{DiffInsert, string(runes2)},
+		{DiffDelete, string(runes1)},
+		{DiffInsert, string(runes2)},
 	}
 }
 
@@ -684,7 +684,7 @@ func (dmp *DiffMatchPatch) DiffCleanupSemantic(diffs []Diff) []Diff {
 				diffs = append(
 					diffs[:insPoint],
 					append(
-						[]Diff{Diff{DiffDelete, lastequality}},
+						[]Diff{{DiffDelete, lastequality}},
 						diffs[insPoint:]...,
 					)...,
 				)
@@ -741,7 +741,7 @@ func (dmp *DiffMatchPatch) DiffCleanupSemantic(diffs []Diff) []Diff {
 						diffs[:pointer],
 						append(
 							[]Diff{
-								Diff{DiffEqual, insertion[:overlap_length1]},
+								{DiffEqual, insertion[:overlap_length1]},
 							},
 							diffs[pointer:]...,
 						)...,
@@ -982,7 +982,7 @@ func (dmp *DiffMatchPatch) DiffCleanupEfficiency(diffs []Diff) []Diff {
 				diffs = append(
 					diffs[:equalities.Peek().(int)],
 					append(
-						[]Diff{Diff{DiffDelete, lastequality}},
+						[]Diff{{DiffDelete, lastequality}},
 						diffs[equalities.Peek().(int):]...,
 					)...,
 				)
@@ -1061,7 +1061,7 @@ func (dmp *DiffMatchPatch) DiffCleanupMerge(diffs []Diff) []Diff {
 						} else {
 							diffs = append(
 								[]Diff{
-									Diff{DiffEqual,
+									{DiffEqual,
 										text_insert[:commonlength]},
 								},
 								diffs...,
@@ -1713,7 +1713,7 @@ func (dmp *DiffMatchPatch) PatchAddPadding(ps []Patch) string {
 	}
 
 	// Bump all the ps forward.
-	for i, _ := range ps {
+	for i := range ps {
 		ps[i].start1 += npad
 		ps[i].start2 += npad
 	}

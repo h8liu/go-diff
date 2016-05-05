@@ -5,7 +5,7 @@ test:
 	go test .
 
 fmt:
-	go fmt .
+	gofmt -s -w -l .
 
 check:
 	e8chk -path="github.com/sergi/go-diff/diffmatchpatch" -width=1000 -height=3000
