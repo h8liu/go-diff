@@ -1,5 +1,6 @@
 all: check fmt
-	go build .
+	go install -v ./...
+	gotags -R . > tags
 
 test:
 	go test .

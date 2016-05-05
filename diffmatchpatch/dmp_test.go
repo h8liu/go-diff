@@ -1123,40 +1123,37 @@ func Test_patch_patchObj(t *testing.T) {
 	assert.Equal(t, strp, p.String(), "Patch: toString.")
 }
 
-func Test_patch_fromText(t *testing.T) {
-	dmp := New()
-
-	_v1, _ := dmp.PatchFromText("")
+func TestPatchFromText(t *testing.T) {
+	_v1, _ := PatchFromText("")
 	assert.True(t, len(_v1) == 0, "patch_fromText: #0.")
 	strp := "@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n %0Alaz\n"
-	_v2, _ := dmp.PatchFromText(strp)
+	_v2, _ := PatchFromText(strp)
 	assert.Equal(t, strp, _v2[0].String(), "patch_fromText: #1.")
 
-	_v3, _ := dmp.PatchFromText("@@ -1 +1 @@\n-a\n+b\n")
+	_v3, _ := PatchFromText("@@ -1 +1 @@\n-a\n+b\n")
 	assert.Equal(t, "@@ -1 +1 @@\n-a\n+b\n", _v3[0].String(), "patch_fromText: #2.")
 
-	_v4, _ := dmp.PatchFromText("@@ -1,3 +0,0 @@\n-abc\n")
+	_v4, _ := PatchFromText("@@ -1,3 +0,0 @@\n-abc\n")
 	assert.Equal(t, "@@ -1,3 +0,0 @@\n-abc\n", _v4[0].String(), "patch_fromText: #3.")
 
-	_v5, _ := dmp.PatchFromText("@@ -0,0 +1,3 @@\n+abc\n")
+	_v5, _ := PatchFromText("@@ -0,0 +1,3 @@\n+abc\n")
 	assert.Equal(t, "@@ -0,0 +1,3 @@\n+abc\n", _v5[0].String(), "patch_fromText: #4.")
 
 	// Generates error.
-	_, err := dmp.PatchFromText("Bad\nPatch\n")
+	_, err := PatchFromText("Bad\nPatch\n")
 	assert.True(t, err != nil, "There should be an error")
 }
 
 func Test_patch_toText(t *testing.T) {
-	dmp := New()
 	strp := "@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n  laz\n"
 	var patches []Patch
-	patches, _ = dmp.PatchFromText(strp)
-	result := dmp.PatchToText(patches)
+	patches, _ = PatchFromText(strp)
+	result := PatchToText(patches)
 	assert.Equal(t, strp, result)
 
 	strp = "@@ -1,9 +1,9 @@\n-f\n+F\n oo+fooba\n@@ -7,9 +7,9 @@\n obar\n-,\n+.\n  tes\n"
-	patches, _ = dmp.PatchFromText(strp)
-	result = dmp.PatchToText(patches)
+	patches, _ = PatchFromText(strp)
+	result = PatchToText(patches)
 	assert.Equal(t, strp, result)
 }
 
@@ -1164,22 +1161,22 @@ func Test_patch_addContext(t *testing.T) {
 	dmp := New()
 	dmp.PatchMargin = 4
 	var p Patch
-	_p, _ := dmp.PatchFromText("@@ -21,4 +21,10 @@\n-jump\n+somersault\n")
+	_p, _ := PatchFromText("@@ -21,4 +21,10 @@\n-jump\n+somersault\n")
 	p = _p[0]
 	p = dmp.PatchAddContext(p, "The quick brown fox jumps over the lazy dog.")
 	assert.Equal(t, "@@ -17,12 +17,18 @@\n fox \n-jump\n+somersault\n s ov\n", p.String(), "patch_addContext: Simple case.")
 
-	_p, _ = dmp.PatchFromText("@@ -21,4 +21,10 @@\n-jump\n+somersault\n")
+	_p, _ = PatchFromText("@@ -21,4 +21,10 @@\n-jump\n+somersault\n")
 	p = _p[0]
 	p = dmp.PatchAddContext(p, "The quick brown fox jumps.")
 	assert.Equal(t, "@@ -17,10 +17,16 @@\n fox \n-jump\n+somersault\n s.\n", p.String(), "patch_addContext: Not enough trailing context.")
 
-	_p, _ = dmp.PatchFromText("@@ -3 +3,2 @@\n-e\n+at\n")
+	_p, _ = PatchFromText("@@ -3 +3,2 @@\n-e\n+at\n")
 	p = _p[0]
 	p = dmp.PatchAddContext(p, "The quick brown fox jumps.")
 	assert.Equal(t, "@@ -1,7 +1,8 @@\n Th\n-e\n+at\n  qui\n", p.String(), "patch_addContext: Not enough leading context.")
 
-	_p, _ = dmp.PatchFromText("@@ -3 +3,2 @@\n-e\n+at\n")
+	_p, _ = PatchFromText("@@ -3 +3,2 @@\n-e\n+at\n")
 	p = _p[0]
 	p = dmp.PatchAddContext(p, "The quick brown fox jumps.  The quick brown fox crashes.")
 	assert.Equal(t, "@@ -1,27 +1,28 @@\n Th\n-e\n+at\n  quick brown fox jumps. \n", p.String(), "patch_addContext: Ambiguity.")
@@ -1189,39 +1186,39 @@ func Test_patch_make(t *testing.T) {
 	dmp := New()
 	var patches []Patch
 	patches = dmp.PatchMake("", "")
-	assert.Equal(t, "", dmp.PatchToText(patches), "patch_make: Null case.")
+	assert.Equal(t, "", PatchToText(patches), "patch_make: Null case.")
 
 	text1 := "The quick brown fox jumps over the lazy dog."
 	text2 := "That quick brown fox jumped over a lazy dog."
 	expectedPatch := "@@ -1,8 +1,7 @@\n Th\n-at\n+e\n  qui\n@@ -21,17 +21,18 @@\n jump\n-ed\n+s\n  over \n-a\n+the\n  laz\n"
 	// The second patch must be "-21,17 +21,18", not "-22,17 +21,18" due to rolling context.
 	patches = dmp.PatchMake(text2, text1)
-	assert.Equal(t, expectedPatch, dmp.PatchToText(patches), "patch_make: Text2+Text1 inputs.")
+	assert.Equal(t, expectedPatch, PatchToText(patches), "patch_make: Text2+Text1 inputs.")
 
 	expectedPatch = "@@ -1,11 +1,12 @@\n Th\n-e\n+at\n  quick b\n@@ -22,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n  laz\n"
 	patches = dmp.PatchMake(text1, text2)
-	assert.Equal(t, expectedPatch, dmp.PatchToText(patches), "patch_make: Text1+Text2 inputs.")
+	assert.Equal(t, expectedPatch, PatchToText(patches), "patch_make: Text1+Text2 inputs.")
 
 	diffs := dmp.DiffMain(text1, text2, false)
 	patches = dmp.PatchMake(diffs)
-	assert.Equal(t, expectedPatch, dmp.PatchToText(patches), "patch_make: Diff input.")
+	assert.Equal(t, expectedPatch, PatchToText(patches), "patch_make: Diff input.")
 
 	patches = dmp.PatchMake(text1, diffs)
-	assert.Equal(t, expectedPatch, dmp.PatchToText(patches), "patch_make: Text1+Diff inputs.")
+	assert.Equal(t, expectedPatch, PatchToText(patches), "patch_make: Text1+Diff inputs.")
 
 	patches = dmp.PatchMake(text1, text2, diffs)
-	assert.Equal(t, expectedPatch, dmp.PatchToText(patches), "patch_make: Text1+Text2+Diff inputs (deprecated).")
+	assert.Equal(t, expectedPatch, PatchToText(patches), "patch_make: Text1+Text2+Diff inputs (deprecated).")
 
 	patches = dmp.PatchMake("`1234567890-=[]\\;',./", "~!@#$%^&*()_+{}|:\"<>?")
 	assert.Equal(t, "@@ -1,21 +1,21 @@\n-%601234567890-=%5B%5D%5C;',./\n+~!@#$%25%5E&*()_+%7B%7D%7C:%22%3C%3E?\n",
-		dmp.PatchToText(patches),
+		PatchToText(patches),
 		"patch_toText: Character encoding.")
 
 	diffs = []Diff{
 		{DiffDelete, "`1234567890-=[]\\;',./"},
 		{DiffInsert, "~!@#$%^&*()_+{}|:\"<>?"}}
 
-	_p1, _ := dmp.PatchFromText("@@ -1,21 +1,21 @@\n-%601234567890-=%5B%5D%5C;',./\n+~!@#$%25%5E&*()_+%7B%7D%7C:%22%3C%3E?\n")
+	_p1, _ := PatchFromText("@@ -1,21 +1,21 @@\n-%601234567890-=%5B%5D%5C;',./\n+~!@#$%25%5E&*()_+%7B%7D%7C:%22%3C%3E?\n")
 	assertDiffEqual(t, diffs,
 		_p1[0].diffs,
 	)
@@ -1233,7 +1230,7 @@ func Test_patch_make(t *testing.T) {
 	text2 = text1 + "123"
 	expectedPatch = "@@ -573,28 +573,31 @@\n cdefabcdefabcdefabcdefabcdef\n+123\n"
 	patches = dmp.PatchMake(text1, text2)
-	assert.Equal(t, expectedPatch, dmp.PatchToText(patches), "patch_make: Long string with repeats.")
+	assert.Equal(t, expectedPatch, PatchToText(patches), "patch_make: Long string with repeats.")
 }
 
 func Test_PatchSplitMax(t *testing.T) {
@@ -1243,20 +1240,20 @@ func Test_PatchSplitMax(t *testing.T) {
 
 	patches = dmp.PatchMake("abcdefghijklmnopqrstuvwxyz01234567890", "XabXcdXefXghXijXklXmnXopXqrXstXuvXwxXyzX01X23X45X67X89X0")
 	patches = dmp.PatchSplitMax(patches)
-	assert.Equal(t, "@@ -1,32 +1,46 @@\n+X\n ab\n+X\n cd\n+X\n ef\n+X\n gh\n+X\n ij\n+X\n kl\n+X\n mn\n+X\n op\n+X\n qr\n+X\n st\n+X\n uv\n+X\n wx\n+X\n yz\n+X\n 012345\n@@ -25,13 +39,18 @@\n zX01\n+X\n 23\n+X\n 45\n+X\n 67\n+X\n 89\n+X\n 0\n", dmp.PatchToText(patches))
+	assert.Equal(t, "@@ -1,32 +1,46 @@\n+X\n ab\n+X\n cd\n+X\n ef\n+X\n gh\n+X\n ij\n+X\n kl\n+X\n mn\n+X\n op\n+X\n qr\n+X\n st\n+X\n uv\n+X\n wx\n+X\n yz\n+X\n 012345\n@@ -25,13 +39,18 @@\n zX01\n+X\n 23\n+X\n 45\n+X\n 67\n+X\n 89\n+X\n 0\n", PatchToText(patches))
 
 	patches = dmp.PatchMake("abcdef1234567890123456789012345678901234567890123456789012345678901234567890uvwxyz", "abcdefuvwxyz")
-	oldToText := dmp.PatchToText(patches)
+	oldToText := PatchToText(patches)
 	dmp.PatchSplitMax(patches)
-	assert.Equal(t, oldToText, dmp.PatchToText(patches))
+	assert.Equal(t, oldToText, PatchToText(patches))
 
 	patches = dmp.PatchMake("1234567890123456789012345678901234567890123456789012345678901234567890", "abc")
 	patches = dmp.PatchSplitMax(patches)
-	assert.Equal(t, "@@ -1,32 +1,4 @@\n-1234567890123456789012345678\n 9012\n@@ -29,32 +1,4 @@\n-9012345678901234567890123456\n 7890\n@@ -57,14 +1,3 @@\n-78901234567890\n+abc\n", dmp.PatchToText(patches))
+	assert.Equal(t, "@@ -1,32 +1,4 @@\n-1234567890123456789012345678\n 9012\n@@ -29,32 +1,4 @@\n-9012345678901234567890123456\n 7890\n@@ -57,14 +1,3 @@\n-78901234567890\n+abc\n", PatchToText(patches))
 
 	patches = dmp.PatchMake("abcdefghij , h : 0 , t : 1 abcdefghij , h : 0 , t : 1 abcdefghij , h : 0 , t : 1", "abcdefghij , h : 1 , t : 1 abcdefghij , h : 1 , t : 1 abcdefghij , h : 0 , t : 1")
 	dmp.PatchSplitMax(patches)
-	assert.Equal(t, "@@ -2,32 +2,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n@@ -29,32 +29,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n", dmp.PatchToText(patches))
+	assert.Equal(t, "@@ -2,32 +2,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n@@ -29,32 +29,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n", PatchToText(patches))
 }
 
 func Test_PatchAddPadding(t *testing.T) {
@@ -1264,7 +1261,7 @@ func Test_PatchAddPadding(t *testing.T) {
 	var patches []Patch
 	patches = dmp.PatchMake("", "test")
 	pass := assert.Equal(t, "@@ -0,0 +1,4 @@\n+test\n",
-		dmp.PatchToText(patches),
+		PatchToText(patches),
 		"PatchAddPadding: Both edges full.")
 	if !pass {
 		t.FailNow()
@@ -1272,25 +1269,25 @@ func Test_PatchAddPadding(t *testing.T) {
 
 	dmp.PatchAddPadding(patches)
 	assert.Equal(t, "@@ -1,8 +1,12 @@\n %01%02%03%04\n+test\n %01%02%03%04\n",
-		dmp.PatchToText(patches),
+		PatchToText(patches),
 		"PatchAddPadding: Both edges full.")
 
 	patches = dmp.PatchMake("XY", "XtestY")
 	assert.Equal(t, "@@ -1,2 +1,6 @@\n X\n+test\n Y\n",
-		dmp.PatchToText(patches),
+		PatchToText(patches),
 		"PatchAddPadding: Both edges partial.")
 	dmp.PatchAddPadding(patches)
 	assert.Equal(t, "@@ -2,8 +2,12 @@\n %02%03%04X\n+test\n Y%01%02%03\n",
-		dmp.PatchToText(patches),
+		PatchToText(patches),
 		"PatchAddPadding: Both edges partial.")
 
 	patches = dmp.PatchMake("XXXXYYYY", "XXXXtestYYYY")
 	assert.Equal(t, "@@ -1,8 +1,12 @@\n XXXX\n+test\n YYYY\n",
-		dmp.PatchToText(patches),
+		PatchToText(patches),
 		"PatchAddPadding: Both edges none.")
 	dmp.PatchAddPadding(patches)
 	assert.Equal(t, "@@ -5,8 +5,12 @@\n XXXX\n+test\n YYYY\n",
-		dmp.PatchToText(patches),
+		PatchToText(patches),
 		"PatchAddPadding: Both edges none.")
 }
 
@@ -1356,14 +1353,14 @@ func Test_patchApply(t *testing.T) {
 	dmp.MatchDistance = 1000
 
 	patches = dmp.PatchMake("", "test")
-	patchStr := dmp.PatchToText(patches)
+	patchStr := PatchToText(patches)
 	dmp.PatchApply(patches, "")
-	assert.Equal(t, patchStr, dmp.PatchToText(patches), "patch_apply: No side effects.")
+	assert.Equal(t, patchStr, PatchToText(patches), "patch_apply: No side effects.")
 
 	patches = dmp.PatchMake("The quick brown fox jumps over the lazy dog.", "Woof")
-	patchStr = dmp.PatchToText(patches)
+	patchStr = PatchToText(patches)
 	dmp.PatchApply(patches, "The quick brown fox jumps over the lazy dog.")
-	assert.Equal(t, patchStr, dmp.PatchToText(patches), "patch_apply: No side effects with major delete.")
+	assert.Equal(t, patchStr, PatchToText(patches), "patch_apply: No side effects with major delete.")
 
 	patches = dmp.PatchMake("", "test")
 	results0, results1 = dmp.PatchApply(patches, "")
