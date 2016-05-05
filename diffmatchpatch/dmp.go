@@ -1229,34 +1229,7 @@ func (dmp *DiffMatchPatch) DiffPrettyHtml(diffs []Diff) string {
 	return buff.String()
 }
 
-// Diff_text1 computes and returns the source text (all equalities and
-// deletions).
-func (dmp *DiffMatchPatch) DiffText1(diffs []Diff) string {
-	//StringBuilder text = new StringBuilder()
-	var text bytes.Buffer
-
-	for _, aDiff := range diffs {
-		if aDiff.Type != DiffInsert {
-			text.WriteString(aDiff.Text)
-		}
-	}
-	return text.String()
-}
-
-// Diff_text2 computes and returns the destination text (all equalities and
-// insertions).
-func (dmp *DiffMatchPatch) DiffText2(diffs []Diff) string {
-	var text bytes.Buffer
-
-	for _, aDiff := range diffs {
-		if aDiff.Type != DiffDelete {
-			text.WriteString(aDiff.Text)
-		}
-	}
-	return text.String()
-}
-
-// Diff_levenshtein computes the Levenshtein distance; the number of inserted,
+// DiffLevenshtein computes the Levenshtein distance; the number of inserted,
 // deleted or substituted characters.
 func (dmp *DiffMatchPatch) DiffLevenshtein(diffs []Diff) int {
 	levenshtein := 0
@@ -1566,7 +1539,7 @@ func (dmp *DiffMatchPatch) PatchMake(opt ...interface{}) []Patch {
 	switch len(opt) {
 	case 1:
 		diffs, _ := opt[0].([]Diff)
-		text1 := dmp.DiffText1(diffs)
+		text1 := DiffText1(diffs)
 		return dmp.PatchMake(text1, diffs)
 
 	case 2:
@@ -1589,22 +1562,20 @@ func (dmp *DiffMatchPatch) PatchMake(opt ...interface{}) []Patch {
 	return []Patch{}
 }
 
-// PatchApply merges a set of patches onto the text.  Returns a patched text,
+// Apply merges a set of patches onto the text.  Returns a patched text,
 // as well as an array of true/false values indicating which patches were
 // applied.
-func (dmp *DiffMatchPatch) PatchApply(
-	ps []Patch, text string,
-) (string, []bool) {
+func (dmp *DiffMatchPatch) Apply(ps []Patch, s string) (string, []bool) {
 	if len(ps) == 0 {
-		return text, []bool{}
+		return s, []bool{}
 	}
 
 	// Deep copy the patches so that no changes are made to originals.
 	ps = PatchDeepCopy(ps)
 
-	nullPadding := dmp.PatchAddPadding(ps)
-	text = nullPadding + text + nullPadding
-	ps = dmp.PatchSplitMax(ps)
+	nullPadding := patchAddPadding(ps, dmp.PatchMargin)
+	s = nullPadding + s + nullPadding
+	ps = patchSplitMax(ps, dmp.MatchMaxBits, dmp.PatchMargin)
 
 	x := 0
 	// delta keeps track of the offset between the expected and actual
@@ -1615,18 +1586,18 @@ func (dmp *DiffMatchPatch) PatchApply(
 	results := make([]bool, len(ps))
 	for _, p := range ps {
 		expected_loc := p.start2 + delta
-		text1 := dmp.DiffText1(p.diffs)
+		text1 := DiffText1(p.diffs)
 		var startLoc int
 		endLoc := -1
 		if len(text1) > dmp.MatchMaxBits {
 			// PatchSplitMax will only provide an oversized pattern
 			// in the case of a monster delete.
 			startLoc = dmp.MatchMain(
-				text, text1[:dmp.MatchMaxBits], expected_loc,
+				s, text1[:dmp.MatchMaxBits], expected_loc,
 			)
 			if startLoc != -1 {
-				endLoc = dmp.MatchMain(text,
-					text1[len(text1)-dmp.MatchMaxBits:],
+				endLoc = dmp.MatchMain(
+					s, text1[len(text1)-dmp.MatchMaxBits:],
 					expected_loc+len(text1)-dmp.MatchMaxBits,
 				)
 				if endLoc == -1 || startLoc >= endLoc {
@@ -1635,7 +1606,7 @@ func (dmp *DiffMatchPatch) PatchApply(
 				}
 			}
 		} else {
-			startLoc = dmp.MatchMain(text, text1, expected_loc)
+			startLoc = dmp.MatchMain(s, text1, expected_loc)
 		}
 		if startLoc == -1 {
 			// No match found.  :(
@@ -1649,17 +1620,16 @@ func (dmp *DiffMatchPatch) PatchApply(
 			delta = startLoc - expected_loc
 			var text2 string
 			if endLoc == -1 {
-				text2 = text[startLoc:int(math.Min(float64(startLoc+len(text1)),
-					float64(len(text))))]
+				text2 = s[startLoc:int(math.Min(float64(startLoc+len(text1)),
+					float64(len(s))))]
 			} else {
-				text2 = text[startLoc:int(math.Min(float64(endLoc+dmp.MatchMaxBits),
-					float64(len(text))))]
+				text2 = s[startLoc:int(math.Min(float64(endLoc+dmp.MatchMaxBits),
+					float64(len(s))))]
 			}
 			if text1 == text2 {
 				// Perfect match, just shove the Replacement text in.
-				text = text[:startLoc] +
-					dmp.DiffText2(p.diffs) +
-					text[startLoc+len(text1):]
+				s = s[:startLoc] + DiffText2(p.diffs) +
+					s[startLoc+len(text1):]
 			} else {
 				// Imperfect match.  Run a diff to get a framework of
 				// equivalent indices.
@@ -1678,13 +1648,13 @@ func (dmp *DiffMatchPatch) PatchApply(
 							index2 := dmp.DiffXIndex(diffs, index1)
 							if d.Type == DiffInsert {
 								// Insertion
-								text = text[:startLoc+index2] +
-									d.Text + text[startLoc+index2:]
+								s = s[:startLoc+index2] +
+									d.Text + s[startLoc+index2:]
 							} else if d.Type == DiffDelete {
 								// Deletion
 								startIndex := startLoc + index2
-								text = text[:startIndex] +
-									text[startIndex+dmp.DiffXIndex(
+								s = s[:startIndex] +
+									s[startIndex+dmp.DiffXIndex(
 										diffs,
 										index1+len(d.Text),
 									)-index2:]
@@ -1700,161 +1670,19 @@ func (dmp *DiffMatchPatch) PatchApply(
 		x++
 	}
 	// Strip the padding off.
-	text = text[len(nullPadding) : len(nullPadding)+(len(text)-2*len(nullPadding))]
-	return text, results
+	s = s[len(nullPadding) : len(nullPadding)+(len(s)-2*len(nullPadding))]
+	return s, results
 }
 
 // PatchAddPadding adds some padding on text start and end so that edges can
 // match something.  Intended to be called only from within patch_apply.
 func (dmp *DiffMatchPatch) PatchAddPadding(ps []Patch) string {
-	npad := dmp.PatchMargin
-	nullPadding := ""
-	for x := 1; x <= npad; x++ {
-		nullPadding += string(x)
-	}
-
-	// Bump all the ps forward.
-	for i := range ps {
-		ps[i].start1 += npad
-		ps[i].start2 += npad
-	}
-
-	// Add some padding on start of first diff.
-	p := &ps[0]
-	if len(p.diffs) == 0 || p.diffs[0].Type != DiffEqual {
-		// Add nullPadding equality.
-		p.diffs = diffPrepend(diffEq(nullPadding), p.diffs)
-		p.start1 -= npad // Should be 0.
-		p.start2 -= npad // Should be 0.
-		p.length1 += npad
-		p.length2 += npad
-	} else if npad > len(p.diffs[0].Text) {
-		// Grow first equality.
-		extraLength := npad - len(p.diffs[0].Text)
-		p.diffs[0].Text = nullPadding[len(p.diffs[0].Text):] +
-			p.diffs[0].Text
-		p.start1 -= extraLength
-		p.start2 -= extraLength
-		p.length1 += extraLength
-		p.length2 += extraLength
-	}
-
-	// Add some padding on end of last diff.
-	last := len(ps) - 1
-	if len(ps[last].diffs) == 0 ||
-		ps[last].diffs[len(ps[last].diffs)-1].Type != DiffEqual {
-		// Add nullPadding equality.
-		ps[last].diffs = append(
-			ps[last].diffs, Diff{DiffEqual, nullPadding},
-		)
-		ps[last].length1 += npad
-		ps[last].length2 += npad
-	} else if npad >
-		len(ps[last].diffs[len(ps[last].diffs)-1].Text) {
-		// Grow last equality.
-		lastDiff := ps[last].diffs[len(ps[last].diffs)-1]
-		extraLength := npad - len(lastDiff.Text)
-		ps[last].diffs[len(ps[last].diffs)-1].Text +=
-			nullPadding[:extraLength]
-		ps[last].length1 += extraLength
-		ps[last].length2 += extraLength
-	}
-
-	return nullPadding
+	return patchAddPadding(ps, dmp.PatchMargin)
 }
 
 // PatchSplitMax looks through the patches and breaks up any which are longer
 // than the maximum limit of the match algorithm.
 // Intended to be called only from within patch_apply.
 func (dmp *DiffMatchPatch) PatchSplitMax(ps []Patch) []Patch {
-	patchSize := dmp.MatchMaxBits
-	for x := 0; x < len(ps); x++ {
-		cur := ps[x]
-		if cur.length1 <= patchSize {
-			continue
-		}
-
-		// Remove the big old patch.
-		ps = append(ps[:x], ps[x+1:]...)
-		x -= 1
-
-		start1 := cur.start1
-		start2 := cur.start2
-		pre := ""
-		for len(cur.diffs) != 0 {
-			// Create one of several smaller ps.
-			p := Patch{}
-			empty := true
-			p.start1 = start1 - len(pre)
-			p.start2 = start2 - len(pre)
-			if len(pre) != 0 {
-				p.length1 = len(pre)
-				p.length2 = len(pre)
-				p.diffs = append(p.diffs, Diff{DiffEqual, pre})
-			}
-			for len(cur.diffs) != 0 && p.length1 < patchSize-dmp.PatchMargin {
-				t := cur.diffs[0].Type
-				s := cur.diffs[0].Text
-				if t == DiffInsert {
-					// Insertions are harmless.
-					p.length2 += len(s)
-					start2 += len(s)
-					p.diffs = append(p.diffs, cur.diffs[0])
-					cur.diffs = cur.diffs[1:]
-					empty = false
-				} else if t == DiffDelete && len(p.diffs) == 1 && p.diffs[0].Type == DiffEqual && len(s) > 2*patchSize {
-					// This is a large deletion.  Let it pass in one chunk.
-					p.length1 += len(s)
-					start1 += len(s)
-					empty = false
-					p.diffs = append(p.diffs, Diff{t, s})
-					cur.diffs = cur.diffs[1:]
-				} else {
-					// Deletion or equality.  Only take as much as we can stomach.
-					s = s[:min(len(s), patchSize-p.length1-dmp.PatchMargin)]
-
-					p.length1 += len(s)
-					start1 += len(s)
-					if t == DiffEqual {
-						p.length2 += len(s)
-						start2 += len(s)
-					} else {
-						empty = false
-					}
-					p.diffs = append(p.diffs, Diff{t, s})
-					if s == cur.diffs[0].Text {
-						cur.diffs = cur.diffs[1:]
-					} else {
-						cur.diffs[0].Text = cur.diffs[0].Text[len(s):]
-					}
-				}
-			}
-			// Compute the head context for the next patch.
-			pre = dmp.DiffText2(p.diffs)
-			pre = pre[max(0, len(pre)-dmp.PatchMargin):]
-
-			post := ""
-			// Append the end context for this patch.
-			if len(dmp.DiffText1(cur.diffs)) > dmp.PatchMargin {
-				post = dmp.DiffText1(cur.diffs)[:dmp.PatchMargin]
-			} else {
-				post = dmp.DiffText1(cur.diffs)
-			}
-
-			if len(post) != 0 {
-				p.length1 += len(post)
-				p.length2 += len(post)
-				if len(p.diffs) != 0 && p.diffs[len(p.diffs)-1].Type == DiffEqual {
-					p.diffs[len(p.diffs)-1].Text += post
-				} else {
-					p.diffs = append(p.diffs, Diff{DiffEqual, post})
-				}
-			}
-			if !empty {
-				x += 1
-				ps = append(ps[:x], append([]Patch{p}, ps[x:]...)...)
-			}
-		}
-	}
-	return ps
+	return patchSplitMax(ps, dmp.MatchMaxBits, dmp.PatchMargin)
 }
