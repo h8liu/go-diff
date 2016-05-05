@@ -18,8 +18,6 @@ package diffmatchpatch
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"html"
 	"math"
 	"net/url"
@@ -1291,82 +1289,6 @@ func (dmp *DiffMatchPatch) DiffToDelta(diffs []Diff) string {
 	return delta
 }
 
-// Diff_fromDelta. Given the original text1, and an encoded string which
-// describes the operations required to transform text1 into text2, comAdde
-// the full diff.
-func (dmp *DiffMatchPatch) DiffFromDelta(
-	text1, delta string,
-) (diffs []Diff, err error) {
-	diffs = []Diff{}
-
-	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
-		}
-	}()
-
-	pointer := 0 // Cursor in text1
-	tokens := strings.Split(delta, "\t")
-
-	for _, token := range tokens {
-		if len(token) == 0 {
-			// Blank tokens are ok (from a trailing \t).
-			continue
-		}
-
-		// Each token begins with a one character parameter which specifies
-		// the operation of this token (delete, insert, equality).
-		param := token[1:]
-
-		switch op := token[0]; op {
-		case '+':
-			// decode would Diff all "+" to " "
-			param = strings.Replace(param, "+", "%2b", -1)
-			param, err = url.QueryUnescape(param)
-			if err != nil {
-				return nil, err
-			}
-			if !utf8.ValidString(param) {
-				return nil, fmt.Errorf("invalid UTF-8 token: %q", param)
-			}
-			diffs = append(diffs, Diff{DiffInsert, param})
-		case '=', '-':
-			n, err := strconv.ParseInt(param, 10, 0)
-			if err != nil {
-				return diffs, err
-			} else if n < 0 {
-				return diffs, errors.New(
-					"Negative number in DiffFromDelta: " + param,
-				)
-			}
-
-			// remember that string slicing is by byte - we want by rune here.
-			text := string([]rune(text1)[pointer : pointer+int(n)])
-			pointer += int(n)
-
-			if op == '=' {
-				diffs = append(diffs, Diff{DiffEqual, text})
-			} else {
-				diffs = append(diffs, Diff{DiffDelete, text})
-			}
-		default:
-			// Anything else is an error.
-			return diffs, errors.New(
-				"Invalid diff operation in DiffFromDelta: " +
-					string(token[0]),
-			)
-		}
-	}
-
-	if pointer != len([]rune(text1)) {
-		return diffs, fmt.Errorf(
-			"Delta length (%v) smaller than source text length (%v)",
-			pointer, len(text1),
-		)
-	}
-	return diffs, err
-}
-
 //  MATCH FUNCTIONS
 
 // MatchMain locates the best instance of 'pattern' in 'text' near 'loc'.
@@ -1393,118 +1315,7 @@ func (dmp *DiffMatchPatch) MatchMain(s, pattern string, loc int) int {
 // MatchBitap locates the best instance of 'pattern' in 'text' near 'loc'
 // using the Bitap algorithm.  Returns -1 if no match found.
 func (dmp *DiffMatchPatch) MatchBitap(text, pattern string, loc int) int {
-	// Initialise the alphabet.
-	s := MatchAlphabet(pattern)
-
-	// Highest score beyond which we give up.
-	var score_threshold float64 = dmp.MatchThreshold
-	// Is there a nearby exact match? (speedup)
-	best_loc := indexOf(text, pattern, loc)
-	if best_loc != -1 {
-		score_threshold = math.Min(dmp.matchBitapScore(0, best_loc, loc,
-			pattern), score_threshold)
-		// What about in the other direction? (speedup)
-		best_loc = lastIndexOf(text, pattern, loc+len(pattern))
-		if best_loc != -1 {
-			score_threshold = math.Min(dmp.matchBitapScore(0, best_loc, loc,
-				pattern), score_threshold)
-		}
-	}
-
-	// Initialise the bit arrays.
-	matchmask := 1 << uint((len(pattern) - 1))
-	best_loc = -1
-
-	var bin_min, bin_mid int
-	bin_max := len(pattern) + len(text)
-	last_rd := []int{}
-	for d := 0; d < len(pattern); d++ {
-		// Scan for the best match; each iteration allows for one more error.
-		// Run a binary search to determine how far from 'loc' we can stray at
-		// this error level.
-		bin_min = 0
-		bin_mid = bin_max
-		for bin_min < bin_mid {
-			if dmp.matchBitapScore(d, loc+bin_mid, loc, pattern) <=
-				score_threshold {
-				bin_min = bin_mid
-			} else {
-				bin_max = bin_mid
-			}
-			bin_mid = (bin_max-bin_min)/2 + bin_min
-		}
-		// Use the result from this iteration as the maximum for the next.
-		bin_max = bin_mid
-		start := int(math.Max(1, float64(loc-bin_mid+1)))
-		finish := int(math.Min(float64(loc+bin_mid), float64(len(text))) +
-			float64(len(pattern)))
-
-		rd := make([]int, finish+2)
-		rd[finish+1] = (1 << uint(d)) - 1
-
-		for j := finish; j >= start; j-- {
-			var charMatch int
-			if len(text) <= j-1 {
-				// Out of range.
-				charMatch = 0
-			} else if _, ok := s[text[j-1]]; !ok {
-				charMatch = 0
-			} else {
-				charMatch = s[text[j-1]]
-			}
-
-			if d == 0 {
-				// First pass: exact match.
-				rd[j] = ((rd[j+1] << 1) | 1) & charMatch
-			} else {
-				// Subsequent passes: fuzzy match.
-				rd[j] = ((rd[j+1]<<1)|1)&charMatch |
-					(((last_rd[j+1] | last_rd[j]) << 1) | 1) | last_rd[j+1]
-			}
-			if (rd[j] & matchmask) != 0 {
-				score := dmp.matchBitapScore(d, j-1, loc, pattern)
-				// This match will almost certainly be better than any
-				// existing match.  But check anyway.
-				if score <= score_threshold {
-					// Told you so.
-					score_threshold = score
-					best_loc = j - 1
-					if best_loc > loc {
-						// When passing loc, don't exceed our current distance
-						// from loc.
-						start = int(math.Max(1, float64(2*loc-best_loc)))
-					} else {
-						// Already passed loc, downhill from here on in.
-						break
-					}
-				}
-			}
-		}
-		if dmp.matchBitapScore(d+1, loc, loc, pattern) > score_threshold {
-			// No hope for a (better) match at greater error levels.
-			break
-		}
-		last_rd = rd
-	}
-	return best_loc
-}
-
-// matchBitapScore computes and returns the score for a match with e errors
-// and x location.
-func (dmp *DiffMatchPatch) matchBitapScore(
-	e, x, loc int, pattern string,
-) float64 {
-	var accuracy float64 = float64(e) / float64(len(pattern))
-	proximity := math.Abs(float64(loc - x))
-	if dmp.MatchDistance == 0 {
-		// Dodge divide by zero error.
-		if proximity == 0 {
-			return accuracy
-		} else {
-			return 1.0
-		}
-	}
-	return accuracy + (proximity / float64(dmp.MatchDistance))
+	return matchBitap(dmp, text, pattern, loc)
 }
 
 //  PATCH FUNCTIONS

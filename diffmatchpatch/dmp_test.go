@@ -780,29 +780,29 @@ func Test_diffDelta(t *testing.T) {
 	assert.Equal(t, "=4\t-1\t+ed\t=6\t-3\t+a\t=5\t+old dog", delta)
 
 	// Convert delta string into a diff.
-	_seq1, err := dmp.DiffFromDelta(text1, delta)
+	_seq1, err := DiffFromDelta(text1, delta)
 	assertDiffEqual(t, diffs, _seq1)
 
 	// Generates error (19 < 20).
-	_, err = dmp.DiffFromDelta(text1+"x", delta)
+	_, err = DiffFromDelta(text1+"x", delta)
 	if err == nil {
 		t.Fatal("diff_fromDelta: Too long.")
 	}
 
 	// Generates error (19 > 18).
-	_, err = dmp.DiffFromDelta(text1[1:], delta)
+	_, err = DiffFromDelta(text1[1:], delta)
 	if err == nil {
 		t.Fatal("diff_fromDelta: Too short.")
 	}
 
 	// Generates error (%xy invalid URL escape).
-	_, err = dmp.DiffFromDelta("", "+%c3%xy")
+	_, err = DiffFromDelta("", "+%c3%xy")
 	if err == nil {
 		assert.Fail(t, "diff_fromDelta: expected Invalid URL escape.")
 	}
 
 	// Generates error (invalid utf8).
-	_, err = dmp.DiffFromDelta("", "+%c3xy")
+	_, err = DiffFromDelta("", "+%c3xy")
 	if err == nil {
 		assert.Fail(t, "diff_fromDelta: expected Invalid utf8.")
 	}
@@ -819,7 +819,7 @@ func Test_diffDelta(t *testing.T) {
 	// Lowercase, due to UrlEncode uses lower.
 	assert.Equal(t, "=7\t-7\t+%DA%82 %02 %5C %7C", delta)
 
-	_res1, err := dmp.DiffFromDelta(text1, delta)
+	_res1, err := DiffFromDelta(text1, delta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -835,7 +835,7 @@ func Test_diffDelta(t *testing.T) {
 	assert.Equal(t, "+A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # ", delta, "diff_toDelta: Unchanged characters.")
 
 	// Convert delta string into a diff.
-	_res2, _ := dmp.DiffFromDelta("", delta)
+	_res2, _ := DiffFromDelta("", delta)
 	assertDiffEqual(t, diffs, _res2)
 }
 
