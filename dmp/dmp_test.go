@@ -523,11 +523,10 @@ func TestDiffCleanupSemanticLossless(t *testing.T) {
 }
 
 func TestDiffCleanupSemantic(t *testing.T) {
-	dmp := New()
 	// Cleanup semantically trivial equalities.
 	// Null case.
 	diffs := []Diff{}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{}, diffs)
 
 	// No elimination #1.
@@ -536,7 +535,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 		{DiffInsert, "cd"},
 		{DiffEqual, "12"},
 		{DiffDelete, "e"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "ab"},
 		{DiffInsert, "cd"},
@@ -549,7 +548,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 		{DiffInsert, "ABC"},
 		{DiffEqual, "1234"},
 		{DiffDelete, "wxyz"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "abc"},
 		{DiffInsert, "ABC"},
@@ -561,7 +560,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 		{DiffDelete, "a"},
 		{DiffEqual, "b"},
 		{DiffDelete, "c"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "abc"},
 		{DiffInsert, "b"}}, diffs)
@@ -573,7 +572,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 		{DiffDelete, "e"},
 		{DiffEqual, "f"},
 		{DiffInsert, "g"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "abcdef"},
 		{DiffInsert, "cdfg"}}, diffs)
@@ -589,7 +588,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 		{DiffEqual, "A"},
 		{DiffDelete, "B"},
 		{DiffInsert, "2"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "AB_AB"},
 		{DiffInsert, "1A2_1A2"}}, diffs)
@@ -599,7 +598,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 		{DiffEqual, "The c"},
 		{DiffDelete, "ow and the c"},
 		{DiffEqual, "at."}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffEqual, "The "},
 		{DiffDelete, "cow and the "},
@@ -609,7 +608,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 	diffs = []Diff{
 		{DiffDelete, "abcxx"},
 		{DiffInsert, "xxdef"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "abcxx"},
 		{DiffInsert, "xxdef"}}, diffs)
@@ -618,7 +617,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 	diffs = []Diff{
 		{DiffDelete, "abcxxx"},
 		{DiffInsert, "xxxdef"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "abc"},
 		{DiffEqual, "xxx"},
@@ -628,7 +627,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 	diffs = []Diff{
 		{DiffDelete, "xxxabc"},
 		{DiffInsert, "defxxx"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffInsert, "def"},
 		{DiffEqual, "xxx"},
@@ -641,7 +640,7 @@ func TestDiffCleanupSemantic(t *testing.T) {
 		{DiffEqual, "----"},
 		{DiffDelete, "A3"},
 		{DiffInsert, "3BC"}}
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 	assertDiffEqual(t, []Diff{
 		{DiffDelete, "abcd"},
 		{DiffEqual, "1212"},

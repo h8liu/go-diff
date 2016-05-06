@@ -11,5 +11,5 @@ fmt:
 check:
 	e8chk -path="github.com/sergi/go-diff/dmp" -width=100 -height=1600
 
-hello:
-	echo "hello"
+wc:
+	wc -l `find . -name "*.go"`

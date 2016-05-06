@@ -63,17 +63,17 @@ func DiffCleanupSemanticLossless(diffs []Diff) []Diff {
 		return 0
 	}
 
-	pointer := 1
+	i := 1
 
 	// Intentionally ignore the first and last element (don't need checking).
-	for pointer < len(diffs)-1 {
-		if diffs[pointer-1].Type == DiffEqual &&
-			diffs[pointer+1].Type == DiffEqual {
+	for i < len(diffs)-1 {
+		if diffs[i-1].Type == DiffEqual &&
+			diffs[i+1].Type == DiffEqual {
 
 			// This is a single edit surrounded by equalities.
-			equality1 := diffs[pointer-1].Text
-			edit := diffs[pointer].Text
-			equality2 := diffs[pointer+1].Text
+			equality1 := diffs[i-1].Text
+			edit := diffs[i].Text
+			equality2 := diffs[i+1].Text
 
 			// First, shift the edit as far left as possible.
 			commonOffset := DiffCommonSuffix(equality1, edit)
@@ -112,25 +112,159 @@ func DiffCleanupSemanticLossless(diffs []Diff) []Diff {
 				}
 			}
 
-			if diffs[pointer-1].Text != bestEquality1 {
+			if diffs[i-1].Text != bestEquality1 {
 				// We have an improvement, save it back to the diff.
 				if len(bestEquality1) != 0 {
-					diffs[pointer-1].Text = bestEquality1
+					diffs[i-1].Text = bestEquality1
 				} else {
-					diffs = splice(diffs, pointer-1, 1)
-					pointer--
+					diffs = splice(diffs, i-1, 1)
+					i--
 				}
 
-				diffs[pointer].Text = bestEdit
+				diffs[i].Text = bestEdit
 				if len(bestEquality2) != 0 {
-					diffs[pointer+1].Text = bestEquality2
+					diffs[i+1].Text = bestEquality2
 				} else {
-					diffs = append(diffs[:pointer+1], diffs[pointer+2:]...)
-					pointer--
+					diffs = append(diffs[:i+1], diffs[i+2:]...)
+					i--
 				}
 			}
 		}
-		pointer++
+		i++
+	}
+
+	return diffs
+}
+
+// DiffCleanupSemantic reduces the number of edits by eliminating
+// semantically trivial equalities.
+func DiffCleanupSemantic(diffs []Diff) []Diff {
+	changes := false
+	equalities := new(Stack) // Stack of indices where equalities are found.
+
+	var lastequality string
+	// Always equal to diffs[equalities[equalitiesLength - 1]][1]
+	i := 0
+
+	// Number of characters that changed prior to the equality.
+	var insLen1, delLen1 int
+	// Number of characters that changed after the equality.
+	var insLen2, delLen2 int
+
+	for i < len(diffs) {
+		if diffs[i].Type == DiffEqual { // Equality found.
+			equalities.Push(i)
+			insLen1 = insLen2
+			delLen1 = delLen2
+			insLen2 = 0
+			delLen2 = 0
+			lastequality = diffs[i].Text
+		} else { // An insertion or deletion.
+			if diffs[i].Type == DiffInsert {
+				insLen2 += len(diffs[i].Text)
+			} else {
+				delLen2 += len(diffs[i].Text)
+			}
+			// Eliminate an equality that is smaller or equal to the edits on
+			// both sides of it.
+			d1 := max(insLen1, delLen1)
+			d2 := max(insLen2, delLen2)
+			if len(lastequality) > 0 &&
+				(len(lastequality) <= d1) &&
+				(len(lastequality) <= d2) {
+				// Duplicate record.
+				insPoint := equalities.Peek().(int)
+				diffs = append(
+					diffs[:insPoint],
+					append(
+						[]Diff{{DiffDelete, lastequality}},
+						diffs[insPoint:]...,
+					)...,
+				)
+
+				// Change second copy to insert.
+				diffs[insPoint+1].Type = DiffInsert
+				// Throw away the equality we just deleted.
+				equalities.Pop()
+
+				if equalities.Len() > 0 {
+					equalities.Pop()
+					i = equalities.Peek().(int)
+				} else {
+					i = -1
+				}
+
+				insLen1 = 0 // Reset the counters.
+				delLen1 = 0
+				insLen2 = 0
+				delLen2 = 0
+				lastequality = ""
+				changes = true
+			}
+		}
+		i++
+	}
+
+	// Normalize the diff.
+	if changes {
+		diffs = DiffCleanupMerge(diffs)
+	}
+	diffs = DiffCleanupSemanticLossless(diffs)
+	// Find any overlaps between deletions and insertions.
+	// e.g: <del>abcxxx</del><ins>xxxdef</ins>
+	//   -> <del>abc</del>xxx<ins>def</ins>
+	// e.g: <del>xxxabc</del><ins>defxxx</ins>
+	//   -> <ins>def</ins>xxx<del>abc</del>
+	// Only extract an overlap if it is as big as the edit ahead or behind it.
+	i = 1
+	for i < len(diffs) {
+		if diffs[i-1].Type == DiffDelete &&
+			diffs[i].Type == DiffInsert {
+			deletion := diffs[i-1].Text
+			insertion := diffs[i].Text
+			overlap_length1 := DiffCommonOverlap(deletion, insertion)
+			overlap_length2 := DiffCommonOverlap(insertion, deletion)
+			if overlap_length1 >= overlap_length2 {
+				if float64(overlap_length1) >= float64(len(deletion))/2 ||
+					float64(overlap_length1) >= float64(len(insertion))/2 {
+
+					// Overlap found.  Insert an equality and trim the
+					// surrounding edits.
+					diffs = append(
+						diffs[:i],
+						append(
+							[]Diff{
+								{DiffEqual, insertion[:overlap_length1]},
+							},
+							diffs[i:]...,
+						)...,
+					)
+					diffs[i-1].Text =
+						deletion[0 : len(deletion)-overlap_length1]
+					diffs[i+1].Text = insertion[overlap_length1:]
+					i++
+				}
+			} else {
+				if float64(overlap_length2) >= float64(len(deletion))/2 ||
+					float64(overlap_length2) >= float64(len(insertion))/2 {
+					// Reverse overlap found.
+					// Insert an equality and swap and trim the surrounding
+					// edits.
+					overlap := Diff{DiffEqual, insertion[overlap_length2:]}
+					diffs = append(
+						diffs[:i],
+						append([]Diff{overlap}, diffs[i:]...)...)
+					diffs[i-1].Type = DiffInsert
+					diffs[i-1].Text =
+						insertion[0 : len(insertion)-overlap_length2]
+					diffs[i+1].Type = DiffDelete
+					diffs[i+1].Text = deletion[overlap_length2:]
+					i++
+				}
+			}
+			i++
+		}
+		i++
 	}
 
 	return diffs

@@ -1,19 +1,3 @@
-/**
- * dmp.go
- *
- * Go language implementation of Google Diff, Match, and Patch library
- *
- * Original library is Copyright (c) 2006 Google Inc.
- * http://code.google.com/p/google-diff-match-patch/
- *
- * Copyright (c) 2012 Sergi Mansilla <sergi.mansilla@gmail.com>
- * https://github.com/sergi/go-diff
- *
- * See included LICENSE file for license details.
- */
-
-// Package DMP offers robust algorithms to perform the
-// operations required for synchronizing plain text.
 package dmp
 
 import (
@@ -42,29 +26,29 @@ func (dmp *DMP) DiffMainRunes(s1, s2 []rune, checkLines bool) []Diff {
 }
 
 func (dmp *DMP) diffMainRunes(
-	text1, text2 []rune, checkLines bool, deadline time.Time,
+	s1, s2 []rune, checkLines bool, deadline time.Time,
 ) []Diff {
-	if runesEqual(text1, text2) {
+	if runesEqual(s1, s2) {
 		var diffs []Diff
-		if len(text1) > 0 {
-			diffs = append(diffs, Diff{DiffEqual, string(text1)})
+		if len(s1) > 0 {
+			diffs = append(diffs, Diff{DiffEqual, string(s1)})
 		}
 		return diffs
 	}
 	// Trim off common prefix (speedup).
-	n := commonPrefixLength(text1, text2)
-	prefix := text1[:n]
-	text1 = text1[n:]
-	text2 = text2[n:]
+	n := commonPrefixLength(s1, s2)
+	prefix := s1[:n]
+	s1 = s1[n:]
+	s2 = s2[n:]
 
 	// Trim off common suffix (speedup).
-	n = commonSuffixLength(text1, text2)
-	suffix := text1[len(text1)-n:]
-	text1 = text1[:len(text1)-n]
-	text2 = text2[:len(text2)-n]
+	n = commonSuffixLength(s1, s2)
+	suffix := s1[len(s1)-n:]
+	s1 = s1[:len(s1)-n]
+	s2 = s2[:len(s2)-n]
 
 	// Compute the diff on the middle block.
-	diffs := dmp.diffCompute(text1, text2, checkLines, deadline)
+	diffs := dmp.diffCompute(s1, s2, checkLines, deadline)
 
 	// Restore the prefix and suffix.
 	if len(prefix) != 0 {
@@ -150,7 +134,7 @@ func (dmp *DMP) diffLineMode(text1, text2 []rune, deadline time.Time) []Diff {
 	// Convert the diff back to original text.
 	diffs = DiffCharsToLines(diffs, linearray)
 	// Eliminate freak matches (e.g. blank lines)
-	diffs = dmp.DiffCleanupSemantic(diffs)
+	diffs = DiffCleanupSemantic(diffs)
 
 	// Rediff any replacement blocks, this time character-by-character.
 	// Add a dummy entry at the end.
@@ -227,7 +211,7 @@ func (dmp *DMP) diffBisect(s1, s2 []rune, deadline time.Time) []Diff {
 	delta := len1 - len2
 	// If the total number of characters is odd, then the front path will
 	// collide with the reverse path.
-	front := (delta%2 != 0)
+	front := delta%2 != 0
 	// Offsets for start and end of k loop.
 	// Prevents mapping of space beyond the grid.
 	k1start := 0
@@ -362,143 +346,6 @@ func (dmp *DMP) DiffHalfMatch(text1, text2 string) []string {
 	return result
 }
 
-// Diff_cleanupSemantic reduces the number of edits by eliminating
-// semantically trivial equalities.
-func (dmp *DMP) DiffCleanupSemantic(diffs []Diff) []Diff {
-	changes := false
-	equalities := new(Stack) // Stack of indices where equalities are found.
-
-	var lastequality string
-	// Always equal to diffs[equalities[equalitiesLength - 1]][1]
-	var pointer int // Index of current position.
-	// Number of characters that changed prior to the equality.
-	var length_insertions1, length_deletions1 int
-	// Number of characters that changed after the equality.
-	var length_insertions2, length_deletions2 int
-
-	for pointer < len(diffs) {
-		if diffs[pointer].Type == DiffEqual { // Equality found.
-			equalities.Push(pointer)
-			length_insertions1 = length_insertions2
-			length_deletions1 = length_deletions2
-			length_insertions2 = 0
-			length_deletions2 = 0
-			lastequality = diffs[pointer].Text
-		} else { // An insertion or deletion.
-			if diffs[pointer].Type == DiffInsert {
-				length_insertions2 += len(diffs[pointer].Text)
-			} else {
-				length_deletions2 += len(diffs[pointer].Text)
-			}
-			// Eliminate an equality that is smaller or equal to the edits on
-			// both sides of it.
-			_difference1 := int(math.Max(
-				float64(length_insertions1), float64(length_deletions1),
-			))
-			_difference2 := int(math.Max(
-				float64(length_insertions2), float64(length_deletions2),
-			))
-			if len(lastequality) > 0 &&
-				(len(lastequality) <= _difference1) &&
-				(len(lastequality) <= _difference2) {
-				// Duplicate record.
-				insPoint := equalities.Peek().(int)
-				diffs = append(
-					diffs[:insPoint],
-					append(
-						[]Diff{{DiffDelete, lastequality}},
-						diffs[insPoint:]...,
-					)...,
-				)
-
-				// Change second copy to insert.
-				diffs[insPoint+1].Type = DiffInsert
-				// Throw away the equality we just deleted.
-				equalities.Pop()
-
-				if equalities.Len() > 0 {
-					equalities.Pop()
-					pointer = equalities.Peek().(int)
-				} else {
-					pointer = -1
-				}
-
-				length_insertions1 = 0 // Reset the counters.
-				length_deletions1 = 0
-				length_insertions2 = 0
-				length_deletions2 = 0
-				lastequality = ""
-				changes = true
-			}
-		}
-		pointer++
-	}
-
-	// Normalize the diff.
-	if changes {
-		diffs = DiffCleanupMerge(diffs)
-	}
-	diffs = DiffCleanupSemanticLossless(diffs)
-	// Find any overlaps between deletions and insertions.
-	// e.g: <del>abcxxx</del><ins>xxxdef</ins>
-	//   -> <del>abc</del>xxx<ins>def</ins>
-	// e.g: <del>xxxabc</del><ins>defxxx</ins>
-	//   -> <ins>def</ins>xxx<del>abc</del>
-	// Only extract an overlap if it is as big as the edit ahead or behind it.
-	pointer = 1
-	for pointer < len(diffs) {
-		if diffs[pointer-1].Type == DiffDelete &&
-			diffs[pointer].Type == DiffInsert {
-			deletion := diffs[pointer-1].Text
-			insertion := diffs[pointer].Text
-			overlap_length1 := DiffCommonOverlap(deletion, insertion)
-			overlap_length2 := DiffCommonOverlap(insertion, deletion)
-			if overlap_length1 >= overlap_length2 {
-				if float64(overlap_length1) >= float64(len(deletion))/2 ||
-					float64(overlap_length1) >= float64(len(insertion))/2 {
-
-					// Overlap found.  Insert an equality and trim the
-					// surrounding edits.
-					diffs = append(
-						diffs[:pointer],
-						append(
-							[]Diff{
-								{DiffEqual, insertion[:overlap_length1]},
-							},
-							diffs[pointer:]...,
-						)...,
-					)
-					diffs[pointer-1].Text =
-						deletion[0 : len(deletion)-overlap_length1]
-					diffs[pointer+1].Text = insertion[overlap_length1:]
-					pointer++
-				}
-			} else {
-				if float64(overlap_length2) >= float64(len(deletion))/2 ||
-					float64(overlap_length2) >= float64(len(insertion))/2 {
-					// Reverse overlap found.
-					// Insert an equality and swap and trim the surrounding
-					// edits.
-					overlap := Diff{DiffEqual, insertion[overlap_length2:]}
-					diffs = append(
-						diffs[:pointer],
-						append([]Diff{overlap}, diffs[pointer:]...)...)
-					diffs[pointer-1].Type = DiffInsert
-					diffs[pointer-1].Text =
-						insertion[0 : len(insertion)-overlap_length2]
-					diffs[pointer+1].Type = DiffDelete
-					diffs[pointer+1].Text = deletion[overlap_length2:]
-					pointer++
-				}
-			}
-			pointer++
-		}
-		pointer++
-	}
-
-	return diffs
-}
-
 // DiffCleanupEfficiency reduces the number of edits by eliminating
 // operationally trivial equalities.
 func (dmp *DMP) DiffCleanupEfficiency(diffs []Diff) []Diff {
@@ -555,7 +402,7 @@ func (dmp *DMP) PatchMake(opt ...interface{}) []Patch {
 		case string:
 			diffs := dmp.DiffMain(text1, t, true)
 			if len(diffs) > 2 {
-				diffs = dmp.DiffCleanupSemantic(diffs)
+				diffs = DiffCleanupSemantic(diffs)
 				diffs = dmp.DiffCleanupEfficiency(diffs)
 			}
 			return dmp.PatchMake(text1, diffs)
