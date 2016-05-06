@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 func min(x, y int) int {
 	if x < y {

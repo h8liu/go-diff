@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 func patchAddPadding(ps []Patch, npad int) string {
 	ret := ""

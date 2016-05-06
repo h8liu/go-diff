@@ -1,10 +1,10 @@
-package diffmatchpatch
+package dmp
 
 import (
 	"time"
 )
 
-type DiffMatchPatch struct {
+type DMP struct {
 	// Number of seconds to map a diff before giving up (0 for infinity).
 	DiffTimeout time.Duration
 
@@ -33,10 +33,10 @@ type DiffMatchPatch struct {
 	MatchThreshold float64
 }
 
-// New creates a new DiffMatchPatch object with default parameters.
-func New() *DiffMatchPatch {
+// New creates a new DMP object with default parameters.
+func New() *DMP {
 	// Defaults.
-	return &DiffMatchPatch{
+	return &DMP{
 		DiffTimeout:          time.Second,
 		DiffEditCost:         4,
 		MatchThreshold:       0.5,

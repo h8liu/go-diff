@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 // MatchAlphabet initialises the alphabet for the Bitap algorithm.
 func MatchAlphabet(pattern string) map[byte]int {

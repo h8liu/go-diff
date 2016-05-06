@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 // Diff represents one diff operation
 type Diff struct {

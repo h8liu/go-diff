@@ -1,10 +1,10 @@
-package diffmatchpatch
+package dmp
 
 import (
 	"strings"
 )
 
-func patchAddContext(dmp *DiffMatchPatch, p Patch, s string) Patch {
+func patchAddContext(dmp *DMP, p Patch, s string) Patch {
 	if s == "" {
 		return p
 	}

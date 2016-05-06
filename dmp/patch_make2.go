@@ -1,8 +1,8 @@
-package diffmatchpatch
+package dmp
 
 // Compute a list of patches to turn text1 into text2.
 // text2 is not provided, diffs are the delta between text1 and text2.
-func patchMake2(dmp *DiffMatchPatch, text1 string, diffs []Diff) []Patch {
+func patchMake2(dmp *DMP, text1 string, diffs []Diff) []Patch {
 	// Check for null inputs not needed since null can't be passed in C#.
 	ps := []Patch{}
 	if len(diffs) == 0 {

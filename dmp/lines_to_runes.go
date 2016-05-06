@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 // diffLinesToRunesMunge splits a text into an array of strings.  Reduces the
 // texts to a []rune where each Unicode character represents one line.

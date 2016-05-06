@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 func concat(r1, r2 []rune) []rune {
 	result := make([]rune, len(r1)+len(r2))

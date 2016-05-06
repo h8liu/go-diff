@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 // Return the index of pattern in target, starting at target[i].
 func runesIndexOf(target, pattern []rune, i int) int {

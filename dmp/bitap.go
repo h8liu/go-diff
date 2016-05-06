@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 import (
 	"math"
@@ -7,7 +7,7 @@ import (
 // matchBitapScore computes and returns the score for a match with e errors
 // and x location.
 func matchBitapScore(
-	dmp *DiffMatchPatch, e, x, loc int, pattern string,
+	dmp *DMP, e, x, loc int, pattern string,
 ) float64 {
 	accuracy := float64(e) / float64(len(pattern))
 	proximity := float64(abs(loc - x))
@@ -22,7 +22,7 @@ func matchBitapScore(
 	return accuracy + (proximity / float64(dmp.MatchDistance))
 }
 
-func matchBitap(dmp *DiffMatchPatch, text, pattern string, loc int) int {
+func matchBitap(dmp *DMP, text, pattern string, loc int) int {
 	// Initialise the alphabet.
 	s := MatchAlphabet(pattern)
 

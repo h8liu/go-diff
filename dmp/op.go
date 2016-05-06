@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 type Operation int8
 

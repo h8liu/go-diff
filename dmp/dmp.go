@@ -12,9 +12,9 @@
  * See included LICENSE file for license details.
  */
 
-// Package diffmatchpatch offers robust algorithms to perform the
+// Package DMP offers robust algorithms to perform the
 // operations required for synchronizing plain text.
-package diffmatchpatch
+package dmp
 
 import (
 	"bytes"
@@ -34,7 +34,7 @@ func splice(slice []Diff, index int, amount int, elements ...Diff) []Diff {
 }
 
 // DiffMain finds the differences between two texts.
-func (dmp *DiffMatchPatch) DiffMain(
+func (dmp *DMP) DiffMain(
 	s1, s2 string, checkLines bool,
 ) []Diff {
 	return dmp.diffMain(
@@ -42,7 +42,7 @@ func (dmp *DiffMatchPatch) DiffMain(
 	)
 }
 
-func (dmp *DiffMatchPatch) diffMain(
+func (dmp *DMP) diffMain(
 	s1, s2 string, checkLines bool, deadline time.Time,
 ) []Diff {
 	return dmp.diffMainRunes(
@@ -51,13 +51,13 @@ func (dmp *DiffMatchPatch) diffMain(
 }
 
 // DiffMainRunes finds the differences between two rune sequences.
-func (dmp *DiffMatchPatch) DiffMainRunes(
+func (dmp *DMP) DiffMainRunes(
 	s1, s2 []rune, checkLines bool,
 ) []Diff {
 	return dmp.diffMainRunes(s1, s2, checkLines, deadline(dmp.DiffTimeout))
 }
 
-func (dmp *DiffMatchPatch) diffMainRunes(
+func (dmp *DMP) diffMainRunes(
 	text1, text2 []rune, checkLines bool, deadline time.Time,
 ) []Diff {
 	if runesEqual(text1, text2) {
@@ -94,7 +94,7 @@ func (dmp *DiffMatchPatch) diffMainRunes(
 
 // diffCompute finds the differences between two rune slices.  Assumes that
 // the texts do not have any common prefix or suffix.
-func (dmp *DiffMatchPatch) diffCompute(
+func (dmp *DMP) diffCompute(
 	text1, text2 []rune, checkLines bool, deadline time.Time,
 ) []Diff {
 	diffs := []Diff{}
@@ -135,7 +135,7 @@ func (dmp *DiffMatchPatch) diffCompute(
 			{DiffInsert, string(text2)},
 		}
 		// Check to see if the problem can be split in two.
-	} else if hm := dmp.diffHalfMatch(text1, text2); hm != nil {
+	} else if hm := diffHalfMatch(dmp, text1, text2); hm != nil {
 		// A half-match was found, sort out the return data.
 		text1_a := hm[0]
 		text1_b := hm[1]
@@ -157,7 +157,7 @@ func (dmp *DiffMatchPatch) diffCompute(
 
 // diffLineMode does a quick line-level diff on both []runes, then rediff the
 // parts for greater accuracy. This speedup can produce non-minimal diffs.
-func (dmp *DiffMatchPatch) diffLineMode(
+func (dmp *DMP) diffLineMode(
 	text1, text2 []rune, deadline time.Time,
 ) []Diff {
 	// Scan the text on a line-by-line basis first.
@@ -217,17 +217,17 @@ func (dmp *DiffMatchPatch) diffLineMode(
 // DiffBisect finds the 'middle snake' of a diff, split the problem in two
 // and return the recursively constructed diff.
 // See Myers 1986 paper: An O(ND) Difference Algorithm and Its Variations.
-func (dmp *DiffMatchPatch) DiffBisect(
-	text1, text2 string, deadline time.Time,
+func (dmp *DMP) DiffBisect(
+	s1, s2 string, deadline time.Time,
 ) []Diff {
 	// Unused in this code, but retained for interface compatibility.
-	return dmp.diffBisect([]rune(text1), []rune(text2), deadline)
+	return dmp.diffBisect([]rune(s1), []rune(s2), deadline)
 }
 
 // diffBisect finds the 'middle snake' of a diff, splits the problem in two
 // and returns the recursively constructed diff.
 // See Myers's 1986 paper: An O(ND) Difference Algorithm and Its Variations.
-func (dmp *DiffMatchPatch) diffBisect(
+func (dmp *DMP) diffBisect(
 	runes1, runes2 []rune, deadline time.Time,
 ) []Diff {
 	// Cache the text lengths to prevent multiple calls.
@@ -353,7 +353,7 @@ func (dmp *DiffMatchPatch) diffBisect(
 	}
 }
 
-func (dmp *DiffMatchPatch) diffBisectSplit(runes1, runes2 []rune, x, y int,
+func (dmp *DMP) diffBisectSplit(runes1, runes2 []rune, x, y int,
 	deadline time.Time) []Diff {
 	runes1a := runes1[:x]
 	runes2a := runes2[:y]
@@ -388,131 +388,23 @@ func DiffCharsToLines(diffs []Diff, lineArray []string) []Diff {
 // DiffHalfMatch checks whether the two texts share a substring which is at
 // least half the length of the longer text. This speedup can produce
 // non-minimal diffs.
-func (dmp *DiffMatchPatch) DiffHalfMatch(text1, text2 string) []string {
+func (dmp *DMP) DiffHalfMatch(text1, text2 string) []string {
 	// Unused in this code, but retained for interface compatibility.
-	runeSlices := dmp.diffHalfMatch([]rune(text1), []rune(text2))
-	if runeSlices == nil {
+	rs := diffHalfMatch(dmp, []rune(text1), []rune(text2))
+	if rs == nil {
 		return nil
 	}
 
-	result := make([]string, len(runeSlices))
-	for i, r := range runeSlices {
+	result := make([]string, len(rs))
+	for i, r := range rs {
 		result[i] = string(r)
 	}
 	return result
 }
 
-func (dmp *DiffMatchPatch) diffHalfMatch(text1, text2 []rune) [][]rune {
-	if dmp.DiffTimeout <= 0 {
-		// Don't risk returning a non-optimal diff if we have unlimited time.
-		return nil
-	}
-
-	var longtext, shorttext []rune
-	if len(text1) > len(text2) {
-		longtext = text1
-		shorttext = text2
-	} else {
-		longtext = text2
-		shorttext = text1
-	}
-
-	if len(longtext) < 4 || len(shorttext)*2 < len(longtext) {
-		return nil // Pointless.
-	}
-
-	// First check if the second quarter is the seed for a half-match.
-	hm1 := dmp.diffHalfMatchI(
-		longtext, shorttext, int(float64(len(longtext)+3)/4),
-	)
-
-	// Check again based on the third quarter.
-	hm2 := dmp.diffHalfMatchI(
-		longtext, shorttext, int(float64(len(longtext)+1)/2),
-	)
-
-	hm := [][]rune{}
-	if hm1 == nil && hm2 == nil {
-		return nil
-	} else if hm2 == nil {
-		hm = hm1
-	} else if hm1 == nil {
-		hm = hm2
-	} else {
-		// Both matched.  Select the longest.
-		if len(hm1[4]) > len(hm2[4]) {
-			hm = hm1
-		} else {
-			hm = hm2
-		}
-	}
-
-	// A half-match was found, sort out the return data.
-	if len(text1) > len(text2) {
-		return hm
-	} else {
-		return [][]rune{hm[2], hm[3], hm[0], hm[1], hm[4]}
-	}
-
-	return nil
-}
-
-/**
- * Does a substring of shorttext exist within longtext such that the substring
- * is at least half the length of longtext?
- * @param {string} longtext Longer string.
- * @param {string} shorttext Shorter string.
- * @param {number} i Start index of quarter length substring within longtext.
- * @return {Array.<string>} Five element Array, containing the prefix of
- *     longtext, the suffix of longtext, the prefix of shorttext, the suffix
- *     of shorttext and the common middle.  Or null if there was no match.
- * @private
- */
-func (dmp *DiffMatchPatch) diffHalfMatchI(l, s []rune, i int) [][]rune {
-	// Start with a 1/4 length substring at position i as a seed.
-	seed := l[i : i+len(l)/4]
-	j := -1
-	best_common := []rune{}
-	best_longtext_a := []rune{}
-	best_longtext_b := []rune{}
-	best_shorttext_a := []rune{}
-	best_shorttext_b := []rune{}
-
-	if j < len(s) {
-		j = runesIndexOf(s, seed, j+1)
-		for {
-			if j == -1 {
-				break
-			}
-
-			prefixLength := commonPrefixLength(l[i:], s[j:])
-			suffixLength := commonSuffixLength(l[:i], s[:j])
-			if len(best_common) < suffixLength+prefixLength {
-				best_common = concat(s[j-suffixLength:j], s[j:j+prefixLength])
-				best_longtext_a = l[:i-suffixLength]
-				best_longtext_b = l[i+prefixLength:]
-				best_shorttext_a = s[:j-suffixLength]
-				best_shorttext_b = s[j+prefixLength:]
-			}
-			j = runesIndexOf(s, seed, j+1)
-		}
-	}
-
-	if len(best_common)*2 >= len(l) {
-		return [][]rune{
-			best_longtext_a,
-			best_longtext_b,
-			best_shorttext_a,
-			best_shorttext_b,
-			best_common,
-		}
-	}
-	return nil
-}
-
 // Diff_cleanupSemantic reduces the number of edits by eliminating
 // semantically trivial equalities.
-func (dmp *DiffMatchPatch) DiffCleanupSemantic(diffs []Diff) []Diff {
+func (dmp *DMP) DiffCleanupSemantic(diffs []Diff) []Diff {
 	changes := false
 	equalities := new(Stack) // Stack of indices where equalities are found.
 
@@ -653,7 +545,7 @@ func (dmp *DiffMatchPatch) DiffCleanupSemantic(diffs []Diff) []Diff {
 // sides by equalities which can be shifted sideways to align the edit to a
 // word boundary.
 // e.g: The c<ins>at c</ins>ame. -> The <ins>cat </ins>came.
-func (dmp *DiffMatchPatch) DiffCleanupSemanticLossless(diffs []Diff) []Diff {
+func (dmp *DMP) DiffCleanupSemanticLossless(diffs []Diff) []Diff {
 
 	/**
 	 * Given two strings, compute a score representing whether the internal
@@ -785,7 +677,7 @@ func (dmp *DiffMatchPatch) DiffCleanupSemanticLossless(diffs []Diff) []Diff {
 
 // Diff_cleanupEfficiency reduces the number of edits by eliminating
 // operationally trivial equalities.
-func (dmp *DiffMatchPatch) DiffCleanupEfficiency(diffs []Diff) []Diff {
+func (dmp *DMP) DiffCleanupEfficiency(diffs []Diff) []Diff {
 	changes := false
 	// Stack of indices where equalities are found.
 	equalities := new(Stack)
@@ -894,7 +786,7 @@ func (dmp *DiffMatchPatch) DiffCleanupEfficiency(diffs []Diff) []Diff {
 // Diff_cleanupMerge reorders and merges like edit sections.  Merge
 // equalities.  Any edit section can move as long as it doesn't cross an
 // equality.
-func (dmp *DiffMatchPatch) DiffCleanupMerge(diffs []Diff) []Diff {
+func (dmp *DMP) DiffCleanupMerge(diffs []Diff) []Diff {
 	// Add a dummy entry at the end.
 	diffs = append(diffs, Diff{DiffEqual, ""})
 	pointer := 0
@@ -1042,7 +934,7 @@ func (dmp *DiffMatchPatch) DiffCleanupMerge(diffs []Diff) []Diff {
 // Diff_xIndex. loc is a location in text1, comAdde and return the equivalent
 // location in text2.
 // e.g. "The cat" vs "The big cat", 1->1, 5->8
-func (dmp *DiffMatchPatch) DiffXIndex(diffs []Diff, loc int) int {
+func (dmp *DMP) DiffXIndex(diffs []Diff, loc int) int {
 	chars1 := 0
 	chars2 := 0
 	last_chars1 := 0
@@ -1077,7 +969,7 @@ func (dmp *DiffMatchPatch) DiffXIndex(diffs []Diff, loc int) int {
 // DiffPrettyHtml converts a []Diff into a pretty HTML report.
 // It is intended as an example from which to write one's own
 // display functions.
-func (dmp *DiffMatchPatch) DiffPrettyHtml(diffs []Diff) string {
+func (dmp *DMP) DiffPrettyHtml(diffs []Diff) string {
 	var buff bytes.Buffer
 	for _, diff := range diffs {
 		text := strings.Replace(
@@ -1103,7 +995,7 @@ func (dmp *DiffMatchPatch) DiffPrettyHtml(diffs []Diff) string {
 
 // DiffLevenshtein computes the Levenshtein distance; the number of inserted,
 // deleted or substituted characters.
-func (dmp *DiffMatchPatch) DiffLevenshtein(diffs []Diff) int {
+func (dmp *DMP) DiffLevenshtein(diffs []Diff) int {
 	levenshtein := 0
 	insertions := 0
 	deletions := 0
@@ -1130,7 +1022,7 @@ func (dmp *DiffMatchPatch) DiffLevenshtein(diffs []Diff) int {
 
 // MatchMain locates the best instance of 'pattern' in 'text' near 'loc'.
 // Returns -1 if no match found.
-func (dmp *DiffMatchPatch) MatchMain(s, pattern string, loc int) int {
+func (dmp *DMP) MatchMain(s, pattern string, loc int) int {
 	// Check for null inputs not needed since null can't be passed in C#.
 
 	loc = int(math.Max(0, math.Min(float64(loc), float64(len(s)))))
@@ -1151,7 +1043,7 @@ func (dmp *DiffMatchPatch) MatchMain(s, pattern string, loc int) int {
 
 // MatchBitap locates the best instance of 'pattern' in 'text' near 'loc'
 // using the Bitap algorithm.  Returns -1 if no match found.
-func (dmp *DiffMatchPatch) MatchBitap(text, pattern string, loc int) int {
+func (dmp *DMP) MatchBitap(text, pattern string, loc int) int {
 	return matchBitap(dmp, text, pattern, loc)
 }
 
@@ -1159,11 +1051,11 @@ func (dmp *DiffMatchPatch) MatchBitap(text, pattern string, loc int) int {
 
 // PatchAddContext increases the context until it is unique,
 // but doesn't let the pattern expand beyond MatchMaxBits.
-func (dmp *DiffMatchPatch) PatchAddContext(p Patch, s string) Patch {
+func (dmp *DMP) PatchAddContext(p Patch, s string) Patch {
 	return patchAddContext(dmp, p, s)
 }
 
-func (dmp *DiffMatchPatch) PatchMake(opt ...interface{}) []Patch {
+func (dmp *DMP) PatchMake(opt ...interface{}) []Patch {
 	switch len(opt) {
 	case 1:
 		diffs, _ := opt[0].([]Diff)
@@ -1193,7 +1085,7 @@ func (dmp *DiffMatchPatch) PatchMake(opt ...interface{}) []Patch {
 // Apply merges a set of patches onto the text.  Returns a patched text,
 // as well as an array of true/false values indicating which patches were
 // applied.
-func (dmp *DiffMatchPatch) Apply(ps []Patch, s string) (string, []bool) {
+func (dmp *DMP) Apply(ps []Patch, s string) (string, []bool) {
 	if len(ps) == 0 {
 		return s, []bool{}
 	}
@@ -1304,13 +1196,13 @@ func (dmp *DiffMatchPatch) Apply(ps []Patch, s string) (string, []bool) {
 
 // PatchAddPadding adds some padding on text start and end so that edges can
 // match something.  Intended to be called only from within patch_apply.
-func (dmp *DiffMatchPatch) PatchAddPadding(ps []Patch) string {
+func (dmp *DMP) PatchAddPadding(ps []Patch) string {
 	return patchAddPadding(ps, dmp.PatchMargin)
 }
 
 // PatchSplitMax looks through the patches and breaks up any which are longer
 // than the maximum limit of the match algorithm.
 // Intended to be called only from within patch_apply.
-func (dmp *DiffMatchPatch) PatchSplitMax(ps []Patch) []Patch {
+func (dmp *DMP) PatchSplitMax(ps []Patch) []Patch {
 	return patchSplitMax(ps, dmp.MatchMaxBits, dmp.PatchMargin)
 }

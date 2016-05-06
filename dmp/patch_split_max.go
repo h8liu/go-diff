@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 func patchSplitMax(ps []Patch, size, margin int) []Patch {
 	for x := 0; x < len(ps); x++ {

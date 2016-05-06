@@ -1,4 +1,4 @@
-package diffmatchpatch
+package dmp
 
 // PatchDeepCopy returns an array that is identical to a
 // given an array of patches.
